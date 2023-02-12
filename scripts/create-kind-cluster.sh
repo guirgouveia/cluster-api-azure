@@ -14,4 +14,4 @@ nodes:
 EOF
 
 kind create cluster --name capz --config ./kind-cluster-config.yaml
-
+rm -f ./kind-cluster-config.yaml

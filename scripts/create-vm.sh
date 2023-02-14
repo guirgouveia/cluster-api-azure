@@ -23,5 +23,8 @@ az vm create --name $PROJECT_NAME \
   --size $AZURE_CONTROL_PLANE_MACHINE_TYPE \
   --ssh-key-values ~/.ssh/guirgouveia.pub \
   --image UbuntuLTS \
-  --location $AZURE_LOCATION
+  --location $AZURE_LOCATION \
+  --role Contributor \
+  --scope $SUBSCRIPTION_ID
+
 

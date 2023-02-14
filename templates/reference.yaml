@@ -1,0 +1,294 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  labels:
+    cni: app-cilium
+  name: app-cluster
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 192.168.0.0/16
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: app-cluster-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureCluster
+    name: app-cluster
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureCluster
+metadata:
+  name: app-cluster
+  namespace: default
+spec:
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: management-cluster-identity
+  location: eastus
+  networkSpec:
+    apiServerLB:
+      type: Internal
+      frontendIPs:
+        - name: lb-private-ip-frontend
+          privateIP: 10.100.100.100
+    controlPlaneOutboundLB:
+      frontendIPsCount: 1
+    nodeOutboundLB:
+      frontendIPsCount: 1
+    vnet:
+      name: vnet-app-stage
+      cidrBlocks:
+        - 10.100.0.0/16
+    subnets:
+      - name: subnet-control-plane-app-stage
+        role: control-plane
+        cidrBlocks:
+          - 10.100.100.0/24
+        securityGroup:
+          name: app-cluster-control-plane-nsg
+      - name: subnet-worker-node-app-stage
+        role: node
+        cidrBlocks:
+          - 10.100.101.0/24
+        securityGroup:
+          name: app-cluster-node-nsg
+        # natGateway:
+        #   name: node-natgw
+  resourceGroup: om-rd-clusterapi-thi-stage
+  subscriptionID: 9d54088e-89a6-4a3a-8f91-05699ba3c93a
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: app-cluster-control-plane
+  namespace: default
+spec:
+  kubeadmConfigSpec:
+    users:
+    - name: root
+      sshAuthorizedKeys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCrCLAHg3NgBY1TQYMnFEZ7Uy5Vww+G2Rd3PTSkERPKcd9dyqn3YkZ3FjutVdOAIiW7xV5/CUrxQALy0sPi3t3HtqRcF4Y5sSW+pJORdJF+YPLhu60utHvh1v/K0clEPX76r4/yRDX1IGOVQCcG5rqL9ireTMqpACxp4hhAiNsRU650UJHUpIHGd82/lJmwPvM2VWOb28K/ganaheSTDwAGc9XfQOXKUBEkf0HW0X6d6KdUd5+T0JG4Oz4VzHcY8+4hOwhyguvwQS9LexuSQXnJlEOZhBq3zre2P7qkrNkyYGlu4q5S6V7EOa8tRjHWGRafWHjimErtvCh1rY2ZBgmJauGkzwon8Ru51EJJxrwacZ6vyWKx9FvgGCpa7MCjUaqBW4HG8dunfK1WscWEQM2OI/1KSh74+LBq+gbO85FQr9jrUjYHUOhreibbSkGeKK1nNag0Y+ndGshSiQcB4nbr11NmoU3pVYmnsiUj+c+FfS31wjGZEtrywVU9RGI3lMM="
+    files:
+    - content: "root ALL = (ALL) NOPASSWD: ALL"
+      owner: root:root
+      path: /etc/sudoers.d/root
+      permissions: "0440"
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          cloud-config: /etc/kubernetes/azure.json
+          cloud-provider: azure
+        extraVolumes:
+        - hostPath: /etc/kubernetes/azure.json
+          mountPath: /etc/kubernetes/azure.json
+          name: cloud-config
+          readOnly: true
+        timeoutForControlPlane: 20m
+      controllerManager:
+        extraArgs:
+          allocate-node-cidrs: "false"
+          cloud-config: /etc/kubernetes/azure.json
+          cloud-provider: azure
+          cluster-name: app-cluster
+        extraVolumes:
+        - hostPath: /etc/kubernetes/azure.json
+          mountPath: /etc/kubernetes/azure.json
+          name: cloud-config
+          readOnly: true
+      etcd:
+        local:
+          dataDir: /var/lib/etcddisk/etcd
+          extraArgs:
+            quota-backend-bytes: "8589934592"
+    diskSetup:
+      filesystems:
+      - device: /dev/disk/azure/scsi1/lun0
+        extraOpts:
+        - -E
+        - lazy_itable_init=1,lazy_journal_init=1
+        filesystem: ext4
+        label: etcd_disk
+      - device: ephemeral0.1
+        filesystem: ext4
+        label: ephemeral0
+        replaceFS: ntfs
+      partitions:
+      - device: /dev/disk/azure/scsi1/lun0
+        layout: true
+        overwrite: false
+        tableType: gpt
+    files:
+    - contentFrom:
+        secret:
+          key: control-plane-azure.json
+          name: app-cluster-control-plane-azure-json
+      owner: root:root
+      path: /etc/kubernetes/azure.json
+      permissions: "0644"
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          azure-container-registry-config: /etc/kubernetes/azure.json
+          cloud-config: /etc/kubernetes/azure.json
+          cloud-provider: azure
+        name: '{{ ds.meta_data["local_hostname"] }}'
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          azure-container-registry-config: /etc/kubernetes/azure.json
+          cloud-config: /etc/kubernetes/azure.json
+          cloud-provider: azure
+        name: '{{ ds.meta_data["local_hostname"] }}'
+    mounts:
+    - - LABEL=etcd_disk
+      - /var/lib/etcddisk
+    postKubeadmCommands:
+    - if [ -f /tmp/kubeadm-join-config.yaml ] || [ -f /run/kubeadm/kubeadm-join-config.yaml
+      ]; then echo '127.0.0.1   apiserver.app-cluster.capz.io apiserver' >> /etc/hosts;
+      fi
+    preKubeadmCommands:
+    - if [ -f /tmp/kubeadm.yaml ] || [ -f /run/kubeadm/kubeadm.yaml ]; then echo '127.0.0.1   apiserver.app-cluster.capz.io
+      apiserver' >> /etc/hosts; fi
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: AzureMachineTemplate
+      name: app-cluster-control-plane
+  replicas: 1
+  version: 1.24.8
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachineTemplate
+metadata:
+  name: app-cluster-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      dataDisks:
+      - diskSizeGB: 256
+        lun: 0
+        nameSuffix: etcddisk
+      osDisk:
+        diskSizeGB: 128
+        osType: Linux
+      sshPublicKey: ""
+      vmSize: Standard_D8s_v3
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: app-cluster-md-0
+  namespace: default
+spec:
+  clusterName: app-cluster
+  replicas: 1
+  selector:
+    matchLabels: null
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: app-cluster-md-0
+      clusterName: app-cluster
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachineTemplate
+        name: app-cluster-md-0
+      version: 1.24.8
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachineTemplate
+metadata:
+  name: app-cluster-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      osDisk:
+        diskSizeGB: 128
+        osType: Linux
+      sshPublicKey: ""
+      vmSize: Standard_D8s_v3
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: app-cluster-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      files:
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: app-cluster-md-0-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      - content: "root ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/root
+        permissions: "0440"
+      users:
+      - name: root
+        sshAuthorizedKeys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCrCLAHg3NgBY1TQYMnFEZ7Uy5Vww+G2Rd3PTSkERPKcd9dyqn3YkZ3FjutVdOAIiW7xV5/CUrxQALy0sPi3t3HtqRcF4Y5sSW+pJORdJF+YPLhu60utHvh1v/K0clEPX76r4/yRDX1IGOVQCcG5rqL9ireTMqpACxp4hhAiNsRU650UJHUpIHGd82/lJmwPvM2VWOb28K/ganaheSTDwAGc9XfQOXKUBEkf0HW0X6d6KdUd5+T0JG4Oz4VzHcY8+4hOwhyguvwQS9LexuSQXnJlEOZhBq3zre2P7qkrNkyYGlu4q5S6V7EOa8tRjHWGRafWHjimErtvCh1rY2ZBgmJauGkzwon8Ru51EJJxrwacZ6vyWKx9FvgGCpa7MCjUaqBW4HG8dunfK1WscWEQM2OI/1KSh74+LBq+gbO85FQr9jrUjYHUOhreibbSkGeKK1nNag0Y+ndGshSiQcB4nbr11NmoU3pVYmnsiUj+c+FfS31wjGZEtrywVU9RGI3lMM="
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            azure-container-registry-config: /etc/kubernetes/azure.json
+            cloud-config: /etc/kubernetes/azure.json
+            cloud-provider: azure
+          name: '{{ ds.meta_data["local_hostname"] }}'
+      preKubeadmCommands: []
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureClusterIdentity
+metadata:
+  labels:
+    clusterctl.cluster.x-k8s.io/move-hierarchy: "true"
+  name: management-cluster-identity
+  namespace: default
+spec:
+  allowedNamespaces: {}
+  clientID: 1334f19b-cbf5-40ec-a481-f4e92d5b32ac
+  clientSecret:
+    name: management-cluster-identity-secret
+    namespace: default
+  tenantID: 090b858b-df2f-4b8b-a828-6f2518a31805
+  type: ServicePrincipal
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: bootstrap-crs
+  namespace: default
+spec:
+  clusterSelector:
+    matchLabels:
+      cni: app-cilium
+  resources:
+  - kind: ConfigMap
+    name: cilium-app-crs-cm
+  - kind: ConfigMap
+    name: oauth2-proxy-crs-cm
+  - kind: ConfigMap
+    name: nginx-ingress-controller-crs-cm
+  - kind: ConfigMap
+    name: dex-crs-cm
+  - kind: ConfigMap
+    name: argocd-crs-cm
+  - kind: ConfigMap
+    name: ingress-crs-cm
+  - kind: ConfigMap
+    name: csi-secrets-store-crs-cm    
+---

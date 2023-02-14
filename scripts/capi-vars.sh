@@ -25,4 +25,6 @@ export KUBERNETES_VERSION=1.24.6
 export PROJECT_NAME=capz-poc
 
 # Replace standard env variables with the .env file 
-source .env
+if [ -f .env ]; then
+  source .env
+fi

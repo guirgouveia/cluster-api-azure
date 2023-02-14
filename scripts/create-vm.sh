@@ -18,7 +18,7 @@ az vm create --name $PROJECT_NAME \
   --image UbuntuLTS \
   --location $AZURE_LOCATION
 
-function installDocker() { 
+function installDocker { 
   sudo apt-get remove docker docker-engine docker.io containerd run
   sudo apt-get update
   sudo apt-get install \

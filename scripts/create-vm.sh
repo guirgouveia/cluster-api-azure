@@ -1,22 +1,9 @@
 #!/bin/bash
+#
 
-source scripts/capi-vars.sh
-
-if [ -x "$(command -v docker)" ]; then
-  echo "Skipping docker installation."
-else
-  installDocker
-fi
-
-az vm create --name $PROJECT_NAME \ 
-  --resource-group $PROJECT_NAME \
-  --admin-username grgouveia \
-  --assign-identity $USER_ASSIGNED_IDENTITY_ID \
-  --authentication-type ssh \
-  --size $AZURE_CONTROL_PLANE_MACHINE_TYPE \
-  --ssh-key-values ~/.ssh/guirgouveia.pub \
-  --image UbuntuLTS \
-  --location $AZURE_LOCATION
+function installAzureCLI {
+  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+}
 
 function installDocker { 
   sudo apt-get remove docker docker-engine docker.io containerd run
@@ -36,3 +23,24 @@ function installDocker {
   sudo apt-get update
   sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
+
+
+
+source scripts/capi-vars.sh
+
+if [ -x "$(command -v docker)" ]; then
+  echo "Skipping docker installation."
+else
+  installDocker
+fi
+
+az vm create --name $PROJECT_NAME \ 
+  --resource-group $PROJECT_NAME \
+  --admin-username grgouveia \
+  --assign-identity $USER_ASSIGNED_IDENTITY_ID \
+  --authentication-type ssh \
+  --size $AZURE_CONTROL_PLANE_MACHINE_TYPE \
+  --ssh-key-values ~/.ssh/guirgouveia.pub \
+  --image UbuntuLTS \
+  --location $AZURE_LOCATION
+

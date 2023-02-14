@@ -1,6 +1,13 @@
 #!/bin/bash
 #
 
+function installCAPI {
+  curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.3.3/clusterctl-linux-amd64 -o clusterctl
+  curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.3.3/clusterctl-linux-arm64 -o clusterctl
+  curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.3.3/clusterctl-linux-ppc64le -o clusterctl
+  sudo install -o root -g root -m 0755 clusterctl /usr/local/bin/clusterctl
+}
+
 function installAzureCLI {
   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 }

@@ -29,12 +29,16 @@ function installDocker {
 source scripts/capi-vars.sh
 
 if [ -x "$(command -v docker)" ]; then
-  echo "Skipping docker installation."
+  echo "Skipping docker installation because it's already installed."
 else
   installDocker
 fi
 
-installAzureCLI
+if [ -x "$(command -v az)" ]; then
+  echo "Skipping Azure CLI installation because it's already installed."
+else
+  installAzureCLI
+fi
 
 az vm create --name $PROJECT_NAME \ 
   --resource-group $PROJECT_NAME \

@@ -224,9 +224,9 @@ metadata:
 spec:
   allowedNamespaces: {}
   clientID: f59bf04d-28a9-4b6e-9b1b-da71534bd269
-  clientSecret:
-    name: cluster-identity-secret
-    namespace: default
-  #resourceID: /subscriptions/37ff287b-6ef8-4462-87c7-eb78102817e7/resourcegroups/capz-poc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/capz-poc
-  tenantID: D466ea156-fc24-40d2-b2d8-0e2147155bb1
-  type: ServicePrincipal
+    #clientSecret:
+    #  name: cluster-identity-secret
+    #  namespace: default
+  resourceID: /subscriptions/37ff287b-6ef8-4462-87c7-eb78102817e7/resourcegroups/capz-poc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/capz-poc
+  tenantID: 466ea156-fc24-40d2-b2d8-0e2147155bb1
+  type: UserAssinedMSI

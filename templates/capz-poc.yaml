@@ -182,7 +182,8 @@ spec:
     spec:
       identity: UserAssigned
       userAssignedIdentities: 
-        - providerID: /subscriptions/37ff287b-6ef8-4462-87c7-eb78102817e7/resourcegroups/capz-poc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/capz-poc osDisk:
+        - providerID: /subscriptions/37ff287b-6ef8-4462-87c7-eb78102817e7/resourcegroups/capz-poc/providers/Microsoft.ManagedIdentity/userAssignedIdentities/capz-poc 
+      osDisk:
         diskSizeGB: 128
         osType: Linux
       sshPublicKey: ""

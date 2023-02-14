@@ -24,8 +24,6 @@ function installDocker {
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
-
-
 source scripts/capi-vars.sh
 
 if [ -x "$(command -v docker)" ]; then
@@ -33,6 +31,8 @@ if [ -x "$(command -v docker)" ]; then
 else
   installDocker
 fi
+
+installAzureCLI
 
 az vm create --name $PROJECT_NAME \ 
   --resource-group $PROJECT_NAME \
